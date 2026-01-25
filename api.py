@@ -78,10 +78,3 @@ def scrapeMagnet(complete_url,userAgent):
     except:
         lst,lst1,lst2 = None,None,None     
     return magnet,lst1,lst2,imgSrc   
-
-
-
-#<img src="https://i.postimg.cc/vmGwpNF8/1.jpg" class="img-responsive descrimg">
-
-
-
