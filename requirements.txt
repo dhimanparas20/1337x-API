@@ -9,3 +9,4 @@ requests-html==0.10.0
 selenium==4.8.2
 websockets==10.4
 Werkzeug==2.2.3
+lxml_html_clean

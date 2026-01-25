@@ -11,9 +11,13 @@ def fetch(query,pgno,userAgent=defUserAgent):
         return {"Message":"Empty Request"}
     if pgno ==None:
         pgno =1
-    url = f"https://www.1377x.to/search/{query}/{pgno}/"
+    url = f"https://www.1377x.to/category-search/{query}/Music/{pgno}/"
     soup =getSoup(url,userAgent)
     scrapeData(soup,userAgent,data_list)
+
+    if len(data_list) == 0:
+        return {"Message":"No data found"}
+
     return data_list
 
 def getSoup(url,userAgent):
@@ -23,6 +27,11 @@ def getSoup(url,userAgent):
 
 def scrapeData(soup,userAgent,data_list):
     table = soup.find('table', class_='table-list table table-responsive table-striped')
+
+    if table is None or len(table) == 0:
+        print("No table found")
+        return data_list
+    
     for row in table.find_all('tr')[1:]:
         columns = row.find_all('td')
         name = columns[0].text.strip()
@@ -36,8 +45,10 @@ def scrapeData(soup,userAgent,data_list):
         magnet,lst1,lst2,imgSrc = scrapeMagnet(complete_url,userAgent)
         try:
             data = {"name": name,"Images":imgSrc,"Seeders": se,"Leechers": le,"Date": date,"Size":size,"otherDetails":{"category":lst1[0].text,"type":lst1[1].text,"language":lst1[2].text,"uploader":lst1[4].text,"downloads":lst2[0].text,"dateUploaded":lst2[2].text},"magnet": magnet}
-        except:
-            data = None 
+        except Exception as e:
+            print(e)
+            data = {"error":"Failed to scrape data for "+name}
+        print(data)
         data_list.append(data)
     
 def scrapeMagnet(complete_url,userAgent): 
