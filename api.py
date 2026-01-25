@@ -1,3 +1,4 @@
+import html
 from requests_html import HTMLSession
 from bs4 import BeautifulSoup
     
@@ -53,9 +54,15 @@ def scrapeData(soup,userAgent,data_list):
     
 def scrapeMagnet(complete_url,userAgent): 
     soup = getSoup(complete_url,userAgent)
-    drop_down = soup.find("ul", class_="dropdown-menu")
     try:
-        magnet =  drop_down.find_all("a")[3].get("href")
+        magnet_tag = soup.find(
+            lambda tag: tag.name == "a"
+            and "Magnet Download" in tag.get_text(strip=True)
+        )
+        if magnet_tag and magnet_tag.has_attr("href"):
+            magnet = html.unescape(magnet_tag.get("href"))
+        else:
+            magnet = "Na"
     except:
         magnet = "Na"  
     imgSrc = []
