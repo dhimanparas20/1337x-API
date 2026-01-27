@@ -1,8 +1,6 @@
-import html
 import logging
-from requests_html import HTMLSession
 from bs4 import BeautifulSoup
-from requests.exceptions import RequestException, Timeout, ConnectionError, HTTPError
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
 # Configure logging
 logging.basicConfig(
@@ -11,7 +9,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-s = HTMLSession()
 baseURL = "https://thepiratebay.org"
 defUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
 
@@ -51,9 +48,9 @@ def fetch(query, pgno=0, userAgent=defUserAgent):
         
         scrapeData(soup, data_list)
         
-    except (RequestException, HTTPError) as e:
-        logger.error(f"HTTP/Network error during fetch: {str(e)}")
-        return {"Message": f"Network error: {str(e)}"}
+    except PlaywrightTimeoutError as e:
+        logger.error(f"Timeout during fetch: {str(e)}")
+        return {"Message": f"Timeout error: {str(e)}"}
     except Exception as e:
         logger.error(f"Unexpected error during fetch: {str(e)}")
         return {"Message": f"Error occurred: {str(e)}"}
@@ -70,25 +67,22 @@ def getSoup(url, userAgent, timeout=10):
     Fetch and parse HTML content from a URL.
     """
     try:
-        # requests_html might need header adjustment or handling of JS if strictly required, 
-        # but for now we try standard get.
-        r = s.get(url, headers={'User-Agent': userAgent}, timeout=timeout)
-        r.raise_for_status()
-        logger.info(f"HTML Found: {r.text}")
-        soup = BeautifulSoup(r.text, 'html.parser')
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(user_agent=userAgent)
+            page = context.new_page()
+            try:
+                page.goto(url, wait_until="networkidle", timeout=timeout * 1000)
+                html_content = page.content()
+            finally:
+                context.close()
+                browser.close()
+
+        logger.info(f"HTML Found: {html_content}")
+        soup = BeautifulSoup(html_content, 'html.parser')
         return soup
-    except Timeout:
-        logger.error(f"Request timeout for URL: {url}")
-        raise
-    except ConnectionError as e:
-        logger.error(f"Connection error for URL: {url}: {str(e)}")
-        raise
-    except HTTPError as e:
-        status_code = e.response.status_code if hasattr(e, 'response') and e.response is not None else "unknown"
-        logger.error(f"HTTP error {status_code} for URL: {url}: {str(e)}")
-        raise
-    except RequestException as e:
-        logger.error(f"Request failed for URL: {url}: {str(e)}")
+    except PlaywrightTimeoutError as e:
+        logger.error(f"Request timeout for URL: {url}: {str(e)}")
         raise
     except Exception as e:
         logger.error(f"Unexpected error fetching URL: {url}: {str(e)}")
