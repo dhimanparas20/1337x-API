@@ -8,6 +8,20 @@
 
 This project is intended for educational purposes only. The developer of this project is not responsible for any piracy or illegal activities that may result from the use of this API. Please use this tool responsibly and in compliance with all relevant laws and regulations.
 
+## Docker
+
+### Build the Docker image:
+```bash
+docker build -t 1337x-api .
+```
+
+### Run the Docker container:
+```bash
+docker run -p 8000:8000 1337x-api
+```
+
+The API will be available at `127.0.0.1:8000` when running in Docker.
+
 ## Usage
 
 You can use this API in the following ways:

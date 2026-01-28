@@ -1,7 +1,14 @@
 from flask import Flask, request
 from flask_restful import Resource, Api
+import logging
 from sites.one337x.api import fetch as fetch_1337x
 from sites.pirate_bay.api import fetch as fetch_pb
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 # Create a Flask application
 app = Flask(__name__)
