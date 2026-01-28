@@ -137,3 +137,116 @@ def fetch(query, pgno=0, userAgent=...):
 3. Register route in `app.py` and done.
 
 ## JSON Response Schema
+
+The API returns JSON responses in two formats:
+
+### Success Response
+
+A successful response returns an array of torrent objects:
+
+```json
+[
+  {
+    "name": "Example Torrent Name",
+    "magnet": "magnet:?xt=urn:btih:...",
+    "Seeders": "1234",
+    "Leechers": "567",
+    "Size": "1.2 GB",
+    "Date": "2024-01-15",
+    "Images": ["https://example.com/image1.jpg", "https://example.com/image2.jpg"],
+    "otherDetails": {
+      "category": "Music",
+      "type": "Audio",
+      "language": "English",
+      "uploader": "UploaderName",
+      "downloads": "5000",
+      "dateUploaded": "2024-01-15 12:00:00"
+    }
+  }
+]
+```
+
+### Error Response
+
+Error responses return a single object with a `Message` field:
+
+```json
+{
+  "Message": "Empty Request"
+}
+```
+
+Other possible error messages:
+- `{"Message": "No data found"}`
+- `{"Message": "Timeout error: ..."}`
+- `{"Message": "Error occurred: ..."}`
+
+### Response Examples by Site
+
+#### 1337x Response Example
+
+1337x responses include detailed metadata in `otherDetails` and may include multiple images:
+
+```json
+[
+  {
+    "name": "Artist - Album Name [2024] [FLAC]",
+    "magnet": "magnet:?xt=urn:btih:abc123def456...",
+    "Seeders": "234",
+    "Leechers": "45",
+    "Size": "456.7 MB",
+    "Date": "2 days ago",
+    "Images": [
+      "https://www.1377x.to/uploads/thumbnails/image1.jpg",
+      "https://www.1377x.to/uploads/thumbnails/image2.jpg"
+    ],
+    "otherDetails": {
+      "category": "Music",
+      "type": "Audio",
+      "language": "English",
+      "uploader": "Uploader123",
+      "downloads": "1234",
+      "dateUploaded": "2024-01-15 12:00:00"
+    }
+  }
+]
+```
+
+**Note:** If no images are found, `Images` will be `"Na"` (string) instead of an array.
+
+#### Pirate Bay Response Example
+
+Pirate Bay responses have simpler `otherDetails` and typically return `"Na"` for images:
+
+```json
+[
+  {
+    "name": "Artist - Album Name [2024] [FLAC]",
+    "magnet": "magnet:?xt=urn:btih:xyz789ghi012...",
+    "Seeders": "567",
+    "Leechers": "89",
+    "Size": "456.7 MB",
+    "Date": "2 days ago",
+    "Images": "Na",
+    "otherDetails": {
+      "uploader": "UploaderName",
+      "category": "Audio > Music"
+    }
+  }
+]
+```
+
+### Field Descriptions
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | The name/title of the torrent |
+| `magnet` | string | The magnet link (or "Na" if not found) |
+| `Seeders` | string | Number of seeders |
+| `Leechers` | string | Number of leechers |
+| `Size` | string | File size (human-readable format) |
+| `Date` | string | Upload date (site-specific format) |
+| `Images` | string \| array | Image URL(s) or "Na" if none found |
+| `otherDetails` | object | Additional metadata (varies by site) |
+
+**Note:** All string fields may contain `"Na"` if the value cannot be extracted from the source page.
