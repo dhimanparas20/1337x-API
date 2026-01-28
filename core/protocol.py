@@ -7,9 +7,9 @@ class TorrentSiteAdapter(Protocol):
     Each site (Pirate Bay, 1337x, etc.) must implement this interface.
     """
 
-    def build_search_url(self, query: str, page: int) -> str:
+    def build_search_url(self, query: str, category: Optional[str], page: int) -> str:
         """
-        Build the search URL for the given query and page number.
+        Build the search URL for the given query, category (optional), and page number.
         """
         ...
 

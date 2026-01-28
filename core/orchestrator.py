@@ -1,6 +1,6 @@
 import logging
 import functools
-from typing import Union, List, Dict, Any
+from typing import Union, List, Dict, Any, Optional
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from core.protocol import TorrentSiteAdapter
@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 def fetch_site(
     adapter: TorrentSiteAdapter, 
     query: Union[str, None], 
+    category: Optional[str],
     pgno: Any, 
     user_agent: str
 ) -> Union[List[Dict[str, Any]], Dict[str, str]]:
@@ -20,6 +21,7 @@ def fetch_site(
     Args:
         adapter: The site adapter instance to use.
         query: The search query.
+        category: The category to search in (optional).
         pgno: The page number (raw input).
         user_agent: The user agent string to use.
         
@@ -33,8 +35,8 @@ def fetch_site(
     page = adapter.validate_page(pgno)
     
     try:
-        url = adapter.build_search_url(query, page)
-        logger.info(f"Fetching data for query: {query}, page: {page} via {adapter.__class__.__name__}")
+        url = adapter.build_search_url(query, category, page)
+        logger.info(f"Fetching data for query: {query}, category: {category}, page: {page} via {adapter.__class__.__name__}")
         
         soup = fetch_html(url, user_agent)
         
@@ -51,8 +53,8 @@ def fetch_site(
         return {"Message": f"Error occurred: {str(e)}"}
 
     if not data_list:
-        logger.info(f"No data found for query: {query}, page: {page}")
+        logger.info(f"No data found for query: {query}, category: {category}, page: {page}")
         return {"Message": "No data found"}
 
-    logger.info(f"Successfully fetched {len(data_list)} items for query: {query}, page: {page}")
+    logger.info(f"Successfully fetched {len(data_list)} items for query: {query}, category: {category}, page: {page}")
     return data_list

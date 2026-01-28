@@ -6,11 +6,11 @@ DEFAULT_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKi
 
 x1337_adapter = One337xAdapter()
 
-def fetch(query, pgno=1, userAgent=DEFAULT_USER_AGENT):
+def fetch(query, category=None, pgno=1, userAgent=DEFAULT_USER_AGENT):
     """
     Fetch and scrape torrent data from 1337x using the reusable core architecture.
     """
     if userAgent is None:
         userAgent = DEFAULT_USER_AGENT
         
-    return fetch_site(x1337_adapter, query, pgno, userAgent)
+    return fetch_site(x1337_adapter, query, category, pgno, userAgent)

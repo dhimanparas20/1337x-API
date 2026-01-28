@@ -1,5 +1,5 @@
 import logging
-from typing import List, Any, Callable
+from typing import List, Any, Callable, Optional
 from bs4 import BeautifulSoup
 from core.protocol import TorrentSiteAdapter
 
@@ -8,9 +8,10 @@ logger = logging.getLogger(__name__)
 class PirateBayAdapter(TorrentSiteAdapter):
     BASE_URL = "https://thepiratebay.org"
     
-    def build_search_url(self, query: str, page: int) -> str:
-        # Pirate Bay URL pattern: https://thepiratebay.org/search.php?q={query}&audio=on&search=Pirate+Search&page={pgno}&orderby=
-        return f"{self.BASE_URL}/search.php?q={query}&audio=on&search=Pirate+Search&page={page}&orderby="
+    def build_search_url(self, query: str, category: Optional[str], page: int) -> str:
+        if category:
+            return f"{self.BASE_URL}/search.php?q={query}&{category}=on&search=Pirate+Search&page={page}&orderby="
+        return f"{self.BASE_URL}/search.php?q={query}&search=Pirate+Search&page={page}&orderby="
 
     def validate_page(self, pgno: Any) -> int:
         try:

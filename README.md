@@ -53,18 +53,24 @@ flowchart TB
 
 You can use this API in the following ways:
 
-1. **Pirate Bay – search by name & page (0-based):**
+### 1. Pirate Bay
+- **Search by name, category, and page (0-based):**
 ```bash
+GET /pirate-bay/<query>/<category>/<int:pgno>
+GET /pirate-bay/<query>/<category>
 GET /pirate-bay/<query>/<int:pgno>
 GET /pirate-bay/<query>
-GET /pirate-bay/?q=<query>&page=<pgno>
+GET /pirate-bay/?q=<query>&category=<category>&page=<pgno>
 ```
 
-2. **1337x – search by name & page (1-based):**
+### 2. 1337x
+- **Search by name, category, and page (1-based):**
 ```bash
-GET /1337x/<query>/<int:pgno>  
+GET /1337x/<query>/<category>/<int:pgno>
+GET /1337x/<query>/<category>
+GET /1337x/<query>/<int:pgno>
 GET /1337x/<query>
-GET /1337x/?q=<query>&page=<pgno>
+GET /1337x/?q=<query>&category=<category>&page=<pgno>
 ```
 
 Default ports:
@@ -103,14 +109,16 @@ python app.py  # runs on :5000
 1. Create `sites/<site_name>/adapter.py`:  
 
 ```python
-from typing import Callable, List
+from typing import Callable, List, Optional
 from bs4 import BeautifulSoup
 from core.protocol import TorrentSiteAdapter
 
 class NewSiteAdapter(TorrentSiteAdapter):
     BASE_URL = "https://..."
     
-    def build_search_url(self, query: str, page: int) -> str:
+    def build_search_url(self, query: str, category: Optional[str], page: int) -> str:
+        if category:
+            return f"{self.BASE_URL}/search?q={query}&cat={category}&p={page}"
         return f"{self.BASE_URL}/search?q={query}&p={page}"
 
     def validate_page(self, pgno) -> int:
@@ -130,8 +138,8 @@ from core.orchestrator import fetch_site
 from sites.<site_name>.adapter import NewSiteAdapter
 
 adapter = NewSiteAdapter()
-def fetch(query, pgno=0, userAgent=...):
-    return fetch_site(adapter, query, pgno, userAgent)
+def fetch(query, category=None, pgno=0, userAgent=...):
+    return fetch_site(adapter, query, category, pgno, userAgent)
 ```
 
 3. Register route in `app.py` and done.

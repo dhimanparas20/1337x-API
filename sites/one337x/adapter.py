@@ -10,12 +10,10 @@ logger = logging.getLogger(__name__)
 class One337xAdapter(TorrentSiteAdapter):
     BASE_URL = "https://www.1377x.to"
     
-    def build_search_url(self, query: str, page: int) -> str:
-        # 1337x URL pattern: https://www.1377x.to/category-search/{query}/Music/{pgno}/
-        # Note: Original code hardcoded 'Music'. I will keep it for compatibility,
-        # but ideally this should be configurable or inferred. 
-        # The prompt asked to make it reusable "like Pirate Bay", so I'll stick to the existing logic.
-        return f"{self.BASE_URL}/category-search/{query}/Music/{page}/"
+    def build_search_url(self, query: str, category: Optional[str], page: int) -> str:
+        if category:
+            return f"{self.BASE_URL}/category-search/{query}/{category}/{page}/"
+        return f"{self.BASE_URL}/search/{query}/{page}/"
 
     def validate_page(self, pgno: Any) -> int:
         try:
