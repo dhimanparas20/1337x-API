@@ -2,90 +2,259 @@
 
 ## Introduction
 
-1337x-API is a simple API that allows you to access information about torrents from 1337x using web scraping. This API provides easy access to torrent data, including details such as the torrent name, images, seeders, leechers, date uploaded, size, category, type, language, uploader, and more. You can use this API by making HTTP requests to a local server running at `127.0.0.1:5000`, followed by specific routes to access torrent information.
+A modular, reusable **Playwright & BeautifulSoup** web-scraping API that fetches torrent information from both **1337x** and **The Pirate Bay**. The architecture is extensible, so new torrent sites can be added with minimal effort.
 
-## Disclaimer
+**Tech:** Fast headless Chrome via Playwright, BeautifulSoup parser, Flask/REST, clean Python ``Protocol`` adapters.
 
-This project is intended for educational purposes only. The developer of this project is not responsible for any piracy or illegal activities that may result from the use of this API. Please use this tool responsibly and in compliance with all relevant laws and regulations.
+### Supported Sites
+- **1337x** – table-based search + detail-page magnet/image fetch
+- **The Pirate Bay** – list-based search with direct magnet extraction
+
+**Returns:** name, magnet link, images, seeders, leechers, date, size, category, uploader, language, downloads, etc.
+
+## Architecture
+
+
+```mermaid
+flowchart TB
+    subgraph API
+        Flask[Flask routes]
+    end
+    
+    subgraph Core
+        Orch[Orchestrator]
+        Fetcher[Fetcher]
+        Protocol[Adapter Protocol]
+    end
+    
+    subgraph Adapters
+        PB_Adapter[Pirate Bay Adapter]
+        X1337_Adapter[1337x Adapter]
+    end
+    
+    Flask --> PB_Adapter
+    Flask --> X1337_Adapter
+    PB_Adapter --> Orch
+    X1337_Adapter --> Orch
+    Orch --> Protocol
+    Orch --> Fetcher
+    PB_Adapter --> Protocol
+    X1337_Adapter --> Protocol
+    X1337_Adapter -.->|detail fetches| Fetcher
+```
+
+- **Fetcher** – Playwright + BeautifulSoup (headless Chrome, configurable timeout, `wait_until`).
+- **Protocol** – Simple interface: `build_search_url()`, `validate_page()`, `scrape_search_page()`. 
+- **Orchestrator** – DRY workflow that handles fetch + errors + standard output for all sites.
+- **Adapters** – Site-specific logic: URL building, selectors, two-phase scraping (if detail pages needed).
+- **Easy Extension** – Add a new torrent site by writing one adapter and one thin api.py wrapper.
 
 ## Usage
 
 You can use this API in the following ways:
 
-1. **Access torrent by filename and page number (default page 1):**
+### 1. Pirate Bay
+- **Search by name, category, and page (0-based):**
 ```bash
-127.0.0.1:5000/<filename>/<pageno>
+GET /pirate-bay/<query>/<category>/<int:pgno>
+GET /pirate-bay/<query>/<category>
+GET /pirate-bay/<query>/<int:pgno>
+GET /pirate-bay/<query>
+GET /pirate-bay/?q=<query>&category=<category>&page=<pgno>
 ```
 
-
-2. **Access torrent by filename with default page number 1:**
+### 2. 1337x
+- **Search by name, category, and page (1-based):**
 ```bash
-127.0.0.1:5000/<filename>
+GET /1337x/<query>/<category>/<int:pgno>
+GET /1337x/<query>/<category>
+GET /1337x/<query>/<int:pgno>
+GET /1337x/<query>
+GET /1337x/?q=<query>&category=<category>&page=<pgno>
 ```
 
+Default ports:
+- Local dev: `127.0.0.1:5000`
+- Docker: `0.0.0.0:8000`
 
-3. **Access torrent by filename and page number using query parameters:**
+## Environment
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| Browser | Playwright/Chrome (headless) | JS-heavy pages, waits until network-idle |
+| Parser | BeautifulSoup 4 | Fast, readable scraping outside browser |
+| Framework | Flask + **Flask-RESTful** (or **FastAPI***) | Lightweight API endpoints |
+| Adapter Pattern | Python Protocol | OCP-ready; thin per-site plugins |
+
+*Future upgrade suggestion
+
+## Quick Start (Docker)
 ```bash
-127.0.0.1:5000?q=<filename>&page=<pageno>
+docker build -t 1337x-api .
+docker run -p 8000:8000 1337x-api
+```
+**Visit:** `http://127.0.0.1:8000`
+
+---
+## Local Dev
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python app.py  # runs on :5000
 ```
 
+## How to Add a New Site (Extending the Protocol)
 
-## JSON Response
+1. Create `sites/<site_name>/adapter.py`:  
 
-The API returns a JSON response with the following structure:
+```python
+from typing import Callable, List, Optional
+from bs4 import BeautifulSoup
+from core.protocol import TorrentSiteAdapter
+
+class NewSiteAdapter(TorrentSiteAdapter):
+    BASE_URL = "https://..."
+    
+    def build_search_url(self, query: str, category: Optional[str], page: int) -> str:
+        if category:
+            return f"{self.BASE_URL}/search?q={query}&cat={category}&p={page}"
+        return f"{self.BASE_URL}/search?q={query}&p={page}"
+
+    def validate_page(self, pgno) -> int:
+        # coerce to int, set fallback/default, etc
+        ...
+
+    def scrape_search_page(self, soup, fetch_html, user_agent) -> List[dict]:
+        # find results, extract fields, map to standard JSON schema
+        # optional: fetch extra URLs via `fetch_html(url)` and append details
+        ...
+```
+
+2. Create `sites/<site_name>/api.py`: wrap orchestrator call in existing `fetch` signature:
+
+```python
+from core.orchestrator import fetch_site
+from sites.<site_name>.adapter import NewSiteAdapter
+
+adapter = NewSiteAdapter()
+def fetch(query, category=None, pgno=0, userAgent=...):
+    return fetch_site(adapter, query, category, pgno, userAgent)
+```
+
+3. Register route in `app.py` and done.
+
+## JSON Response Schema
+
+The API returns JSON responses in two formats:
+
+### Success Response
+
+A successful response returns an array of torrent objects:
 
 ```json
 [
- {
-     "name": "",
-     "Images": [
-         "",
-         ""
-     ],
-     "Seeders": "",
-     "Leechers": "",
-     "Date": "",
-     "Size": "",
-     "otherDetails": {
-         "category": "",
-         "type": "",
-         "language": "",
-         "uploader": "",
-         "downloads": "",
-         "dateUploaded": ""
-     },
-     "magnet": ""
- }
- // More torrent entries...
+  {
+    "name": "Example Torrent Name",
+    "magnet": "magnet:?xt=urn:btih:...",
+    "Seeders": "1234",
+    "Leechers": "567",
+    "Size": "1.2 GB",
+    "Date": "2024-01-15",
+    "Images": ["https://example.com/image1.jpg", "https://example.com/image2.jpg"],
+    "otherDetails": {
+      "category": "Music",
+      "type": "Audio",
+      "language": "English",
+      "uploader": "UploaderName",
+      "downloads": "5000",
+      "dateUploaded": "2024-01-15 12:00:00"
+    }
+  }
 ]
 ```
 
+### Error Response
 
-## Example of a JSON Response
+Error responses return a single object with a `Message` field:
+
+```json
+{
+  "Message": "Empty Request"
+}
+```
+
+Other possible error messages:
+- `{"Message": "No data found"}`
+- `{"Message": "Timeout error: ..."}`
+- `{"Message": "Error occurred: ..."}`
+
+### Response Examples by Site
+
+#### 1337x Response Example
+
+1337x responses include detailed metadata in `otherDetails` and may include multiple images:
+
 ```json
 [
- {
-     "name": "Zathura: A Space Adventure (2005) 720p BrRip x264 - YIFY",
-     "Images": [
-         "http://i5.minus.com/iUDOCknAFoU6E.png",
-         "http://cdn.piczend.com/images/PwhUfggS/oy5ju8jq1i26g3sgbqismsmfw.jpeg",
-         "http://cdn.piczend.com/images/PwhUfggS/wmii4o43esut7fhm8nqeazapl.png",
-         "http://cdn.piczend.com/images/PwhUfggS/harngaasjjnxdhbv1vt6sw55d.png",
-         "http://cdn.piczend.com/images/PwhUfggS/952zle7bwkixbqgk43dbvzsgj.png"
-     ],
-     "Seeders": "58",
-     "Leechers": "0",
-     "Date": "Jun. 21st '13",
-     "Size": "750.8 MB",
-     "otherDetails": {
-         "category": "Movies",
-         "type": "HD",
-         "language": "English",
-         "uploader": "YIFY",
-         "downloads": "3751",
-         "dateUploaded": "Jun. 21st '13"
-     },
-     "magnet": "magnet:?xt=urn:btih:228502D093EF9A9E4E6EA7B2A9EEF419E1BECA92&dn=Zathura%3A+A+Space+Adventure+%282005%29+720p+BrRip+x264+-+YIFY&tr=udp%3A%2F%2Ftracker.yify-torrents.com%2Fannounce&tr=udp%3A%2F%2Ftwig.gs%3A6969&tr=udp%3A%2F%2Ftracker.publichd.eu%2Fannounce&tr=http%3A%2F%2Ftracker.publichd.eu%2Fannounce&tr=udp%3A%2F%2Ftracker.police.maori.nz%2Fannounce&tr=udp%3A%2F%2Ftracker.1337x.org%3A80%2Fannounce&tr=udp%3A%2F%2Fexodus.desync.com%3A6969&tr=udp%3A%2F%2Ftracker.istole.it%3A80&tr=udp%3A%2F%2Ftracker.ccc.de%3A80%2Fannounce&tr=http%3A%2F%2Ftracker.yify-torrents.com%2Fannounce&tr=udp%3A%2F%2F9.rarbg.com%3A2710%2Fannounce&tr=http%3A%2F%2Ffr33dom.h33t.com%3A3310%2Fannounce&tr=udp%3A%2F%2Ftracker.zer0day.to%3A1337%2Fannounce&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969%2Fannounce&tr=udp%3A%2F%2Fcoppersurfer.tk%3A6969%2Fannounce"
- }
+  {
+    "name": "Artist - Album Name [2024] [FLAC]",
+    "magnet": "magnet:?xt=urn:btih:abc123def456...",
+    "Seeders": "234",
+    "Leechers": "45",
+    "Size": "456.7 MB",
+    "Date": "2 days ago",
+    "Images": [
+      "https://www.1377x.to/uploads/thumbnails/image1.jpg",
+      "https://www.1377x.to/uploads/thumbnails/image2.jpg"
+    ],
+    "otherDetails": {
+      "category": "Music",
+      "type": "Audio",
+      "language": "English",
+      "uploader": "Uploader123",
+      "downloads": "1234",
+      "dateUploaded": "2024-01-15 12:00:00"
+    }
+  }
 ]
 ```
+
+**Note:** If no images are found, `Images` will be `"Na"` (string) instead of an array.
+
+#### Pirate Bay Response Example
+
+Pirate Bay responses have simpler `otherDetails` and typically return `"Na"` for images:
+
+```json
+[
+  {
+    "name": "Artist - Album Name [2024] [FLAC]",
+    "magnet": "magnet:?xt=urn:btih:xyz789ghi012...",
+    "Seeders": "567",
+    "Leechers": "89",
+    "Size": "456.7 MB",
+    "Date": "2 days ago",
+    "Images": "Na",
+    "otherDetails": {
+      "uploader": "UploaderName",
+      "category": "Audio > Music"
+    }
+  }
+]
+```
+
+### Field Descriptions
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | The name/title of the torrent |
+| `magnet` | string | The magnet link (or "Na" if not found) |
+| `Seeders` | string | Number of seeders |
+| `Leechers` | string | Number of leechers |
+| `Size` | string | File size (human-readable format) |
+| `Date` | string | Upload date (site-specific format) |
+| `Images` | string \| array | Image URL(s) or "Na" if none found |
+| `otherDetails` | object | Additional metadata (varies by site) |
+
+**Note:** All string fields may contain `"Na"` if the value cannot be extracted from the source page.
